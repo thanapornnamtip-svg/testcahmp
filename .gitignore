@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.blend1
+phromanusorn-3d/output/obj/
+phromanusorn-3d/output/_lite_raw.glb
+phromanusorn-3d/renders/*.png

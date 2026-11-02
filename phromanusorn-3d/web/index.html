@@ -1,0 +1,454 @@
+<title>พรหมานุสรณ์ 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap">
+<style>
+  /* Layout: ฉากสามมิติเต็มจอ แผงควบคุมลอยชิดขอบ (หัวเรื่องบนซ้าย, เครื่องมือบนขวา, ปุ่มมุมมองล่าง) */
+  :root {
+    --blue: #22418f;
+    --pink: #e3709c;
+    --ink: #17203a;
+    --muted: #57627f;
+    --paper: #eef2f9;
+    --panel: rgba(250, 251, 255, 0.88);
+    --line: rgba(34, 65, 143, 0.18);
+    --on-accent: #ffffff;
+    --shadow: 0 6px 24px rgba(20, 30, 70, 0.16);
+    --font: "Sarabun", "Noto Sans Thai", "Leelawadee UI", "Thonburi", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --blue: #9db2ff; --pink: #f291b8; --ink: #e9edf9; --muted: #a6afcb; --paper: #0e1322;
+      --panel: rgba(17, 23, 42, 0.86); --line: rgba(157, 178, 255, 0.24); --on-accent: #0e1322;
+      --shadow: 0 6px 24px rgba(0, 0, 0, 0.45); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --blue: #9db2ff; --pink: #f291b8; --ink: #e9edf9; --muted: #a6afcb; --paper: #0e1322;
+    --panel: rgba(17, 23, 42, 0.86); --line: rgba(157, 178, 255, 0.24); --on-accent: #0e1322;
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.45); color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 15px; overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+
+  .glass { background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow);
+           -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+
+  .top { position: fixed; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 12px);
+         left: 0; right: 0; padding-left: max(16px, env(safe-area-inset-left, 0px));
+         padding-right: max(16px, env(safe-area-inset-right, 0px));
+         display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; pointer-events: none; }
+  .brand { pointer-events: auto; border-radius: 14px; padding: 10px 14px 10px; min-width: 0; max-width: 520px; }
+  .brand h1 { margin: 0; font-size: clamp(16px, 2.4vw, 21px); line-height: 1.25; font-weight: 800; color: var(--blue);
+              text-wrap: balance; }
+  .brand p { margin: 3px 0 0; font-size: 13px; color: var(--muted); line-height: 1.4; }
+  .nw { white-space: nowrap; }
+  .stripe { display: flex; height: 4px; margin-top: 8px; border-radius: 2px; overflow: hidden; width: 88px; }
+  .stripe span { flex: 1; background: var(--blue); }
+  .stripe span + span { background: var(--pink); }
+  .tools { display: flex; gap: 8px; pointer-events: auto; flex: 0 0 auto; align-items: flex-start; }
+  .tbtn { font: 600 13px var(--font); color: var(--ink); border-radius: 12px; padding: 0 12px; height: 40px;
+          display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .tbtn[aria-pressed="true"] { background: var(--blue); color: var(--on-accent); border-color: transparent; }
+  .compass { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; }
+  .compass svg { width: 26px; height: 26px; transition: transform 60ms linear; }
+
+  nav.views { position: fixed; z-index: 5; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+              padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+              display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .hint { align-self: center; font-size: 12px; color: var(--muted); padding: 4px 10px; border-radius: 999px; }
+  .row { pointer-events: auto; display: flex; gap: 8px; overflow-x: auto; padding: 6px; border-radius: 16px;
+         scrollbar-width: none; max-width: 100%; align-self: center; }
+  .row::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; font: 600 14px var(--font); color: var(--ink); background: transparent; border: 1px solid var(--line);
+          border-radius: 11px; padding: 8px 13px; cursor: pointer; white-space: nowrap; }
+  .chip[aria-pressed="true"] { background: var(--blue); color: var(--on-accent); border-color: transparent; }
+  .chip:hover { border-color: var(--blue); }
+  button:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+
+  #labels { position: fixed; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+  .lbl { position: absolute; left: 0; top: 0; font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap;
+         padding: 3px 9px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line);
+         will-change: transform; }
+  .lbl::after { content: ""; position: absolute; left: 50%; bottom: -5px; width: 1px; height: 5px; background: var(--muted); }
+  .lbl.kw { color: var(--pink); }
+
+  #loader { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center;
+            background: var(--paper) center / cover no-repeat url("poster.jpg");
+            padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  #loader .card { border-radius: 16px; padding: 16px 18px; width: min(380px, 100%); }
+  #loader h2 { margin: 0 0 4px; font-size: 17px; color: var(--blue); }
+  #loader p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: 12px 0 6px; }
+  .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--blue), var(--pink));
+           transition: width 120ms linear; }
+  .pct { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+
+  #info { position: fixed; z-index: 7; top: calc(env(safe-area-inset-top, 0px) + 64px);
+          right: max(16px, env(safe-area-inset-right, 0px)); width: min(400px, calc(100% - 32px));
+          max-height: calc(100% - 180px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+          overflow: auto; border-radius: 16px; padding: 16px 18px; font-size: 14px; line-height: 1.6; }
+  #info h2 { margin: 0 0 6px; font-size: 16px; color: var(--blue); }
+  #info h3 { margin: 14px 0 4px; font-size: 13px; letter-spacing: 0.02em; color: var(--pink); }
+  #info ul { margin: 0; padding-left: 18px; }
+  #info li { margin: 2px 0; }
+  #info .note { border-left: 3px solid var(--pink); padding: 4px 10px; margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+  #info dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-variant-numeric: tabular-nums; }
+  #info dt { color: var(--muted); }
+  #info dd { margin: 0; font-weight: 600; }
+  #info .close { float: right; }
+  @media (max-width: 560px) {
+    .brand p.sub { display: none; }
+    .tbtn .t { display: none; }
+    .tbtn { padding: 0 11px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bar i, .compass svg { transition: none; } }
+</style>
+
+<div id="stage"></div>
+<div id="labels" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="brand glass">
+    <h1><span class="nw">โรงเรียนพรหมานุสรณ์</span><wbr><span class="nw">จังหวัดเพชรบุรี</span></h1>
+    <p>โมเดล 3 มิติ · <span class="nw">ถนนบันไดอิฐ</span> <span class="nw">เชิงเขาวัง</span></p>
+    <p class="sub"><span class="nw">พื้นที่ราว 40 ไร่</span> · <span class="nw">อาคารเรียน 9 หลัง</span> · <span class="nw">ผังอาคารจัดวางโดยประมาณ</span></p>
+    <div class="stripe" aria-hidden="true"><span></span><span></span></div>
+  </div>
+  <div class="tools">
+    <div class="compass glass" title="ทิศเหนือ" aria-label="เข็มทิศ">
+      <svg id="needle" viewBox="0 0 26 26" aria-hidden="true">
+        <path d="M13 2 L17.5 14 L13 12 L8.5 14 Z" fill="var(--pink)"></path>
+        <path d="M13 24 L8.5 14 L13 16 L17.5 14 Z" fill="var(--muted)"></path>
+        <text x="13" y="10.5" text-anchor="middle" font-size="5.5" font-weight="700" fill="var(--on-accent)" font-family="sans-serif">N</text>
+      </svg>
+    </div>
+    <button class="tbtn glass" id="btnLabels" type="button" aria-pressed="true" title="แสดง/ซ่อนชื่ออาคาร">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12v7H8l-3 3v-3H2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path></svg>
+      <span class="t">ชื่ออาคาร</span>
+    </button>
+    <button class="tbtn glass" id="btnInfo" type="button" aria-pressed="false" aria-controls="info" title="ข้อมูลโมเดล">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" stroke-width="1.6"></circle><path d="M8 7v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+      <span class="t">ข้อมูล</span>
+    </button>
+  </div>
+</header>
+
+<aside id="info" class="glass" hidden>
+  <button class="tbtn close" id="btnClose" type="button" aria-label="ปิด">ปิด</button>
+  <h2>เกี่ยวกับโมเดลนี้</h2>
+  <p>โรงเรียนพรหมานุสรณ์จังหวัดเพชรบุรี เลขที่ 278 ถนนบันไดอิฐ ต.คลองกระแชง อ.เมืองเพชรบุรี
+     ตั้งอยู่เชิงเขามไหสวรรค์ (เขาวัง/พระนครคีรี) สีประจำโรงเรียนน้ำเงิน–ชมพู ต้นไม้ประจำโรงเรียนคือลีลาวดี</p>
+  <h3>สิ่งที่อยู่ในโมเดล</h3>
+  <ul>
+    <li>อาคารเรียน 9 หลัง (อาคาร 9 สูง 5 ชั้น มีโถงกระจก)</li>
+    <li>อาคาร 1 อำนวยการ มุขหน้าจั่วทรงไทยพร้อมตราโรงเรียน</li>
+    <li>อาคารเฉลิมพระเกียรติ ๘๐ พรรษา (โรงยิม) หอประชุม โรงอาหาร</li>
+    <li>ศาลาหลวงพ่อป่าแก้ว พระพุทธรูปประจำโรงเรียน</li>
+    <li>เสาธงและนักเรียนเข้าแถวตอนเช้าราว 270 คน</li>
+    <li>สนามฟุตบอล ลู่วิ่ง 6 ลู่ อัฒจันทร์ สนามบาส สนามตะกร้อ</li>
+    <li>ต้นลีลาวดี ทางเดินมีหลังคา โต๊ะม้าหิน แปลงเกษตร หอถังสูง</li>
+    <li>ถนนบันไดอิฐ ทางม้าลาย ตึกแถว เสาไฟฟ้า และเขาวัง 3 ยอด</li>
+  </ul>
+  <h3>ขนาดข้อมูล</h3>
+  <dl>
+    <dt>สามเหลี่ยม</dt><dd>612,794</dd>
+    <dt>มาตราส่วน</dt><dd>1 หน่วย = 1 เมตร</dd>
+    <dt>พื้นที่โรงเรียน</dt><dd>300 × 216 ม. (≈ 40.5 ไร่)</dd>
+    <dt>ไฟล์ที่โหลด</dt><dd id="fileUsed">–</dd>
+  </dl>
+  <p class="note">ตำแหน่งและรูปทรงอาคารเป็นการจัดวางโดยประมาณจากข้อมูลสาธารณะ
+     ไม่ได้วัดจากแผนที่หรือแบบก่อสร้างจริง และตราโรงเรียนเป็นแบบจำลอง</p>
+  <h3>วิธีใช้</h3>
+  <ul>
+    <li>ลากเพื่อหมุน · ถ่างสองนิ้วหรือหมุนล้อเมาส์เพื่อซูม</li>
+    <li>ลากสองนิ้ว (หรือคลิกขวาลาก) เพื่อเลื่อนภาพ</li>
+    <li>กดปุ่มด้านล่างเพื่อไปยังมุมมองสำคัญ</li>
+  </ul>
+</aside>
+
+<nav class="views" aria-label="มุมมอง">
+  <div class="hint glass" id="hint">ลากเพื่อหมุน · สองนิ้วเพื่อซูม</div>
+  <div class="row glass" id="views"></div>
+</nav>
+
+<div id="loader" role="status" aria-live="polite">
+  <div class="card glass">
+    <h2 id="ldTitle">กำลังโหลดโมเดล 3 มิติ</h2>
+    <p id="ldText">ไฟล์ขนาดประมาณ 9 MB อาจใช้เวลาสักครู่บนมือถือ</p>
+    <div class="bar"><i id="ldBar"></i></div>
+    <div class="pct" id="ldPct">0%</div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+
+// พิกัด Blender (x = ตะวันออก, y = เหนือ, z = ขึ้น) -> three.js (y ขึ้น)
+const B = (x, y, z) => new THREE.Vector3(x, z, -y);
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const coarse = matchMedia("(pointer: coarse)").matches;
+
+const VIEWS = [
+  { id: "overview", name: "ภาพรวม", pos: B(340, -300, 200), tgt: B(-10, 35, 8) },
+  { id: "gate", name: "ประตูโรงเรียน", pos: B(166.6, -44, 1.7), tgt: B(147, -3, 5) },
+  { id: "assembly", name: "ลานหน้าเสาธง", pos: B(136, 30, 15), tgt: B(86, -8, 5) },
+  { id: "field", name: "สนามกีฬา", pos: B(-52, -178, 52), tgt: B(-52, 45, 4) },
+  { id: "shrine", name: "ศาลาหลวงพ่อป่าแก้ว", pos: B(149, 32, 2.6), tgt: B(140.5, 21.5, 3.2) },
+  { id: "gym", name: "โรงยิม", pos: B(75, -30, 30), tgt: B(5, -86, 4) },
+  { id: "khaowang", name: "เขาวัง", pos: B(30, -30, 22), tgt: B(-40, 395, 62) },
+  { id: "plan", name: "ผังด้านบน", pos: B(0, -2, 470), tgt: B(0, 0, 0) },
+];
+const LABELS = [
+  ["อาคาร 1 · อำนวยการ", 74, -4, 19], ["อาคาร 2", -116, 67.5, 17], ["อาคาร 3", -50, 67.5, 17],
+  ["อาคาร 4", 27, 67.5, 21], ["อาคาร 5", -114, -76.5, 21], ["อาคาร 6", -55, -76.5, 17],
+  ["อาคาร 7", -118, 92, 13], ["อาคาร 8", 100, -58, 21], ["อาคาร 9", 100, 52, 25],
+  ["โรงยิม ๘๐ พรรษา", 8, -85, 17], ["โรงอาหาร", 18, 91, 11], ["หอประชุม", 104, -89, 22],
+  ["ศาลาหลวงพ่อป่าแก้ว", 141, 22, 9.5], ["เสาธง", 95, -4, 18.5], ["ประตูโรงเรียน", 150, -5, 9],
+  ["สนามฟุตบอล + ลู่วิ่ง", -52, -6, 2], ["สนามบาส", 48, -6, 5], ["ถนนบันไดอิฐ", 159, -80, 1],
+  ["พระธาตุจอมเพชร", -40, 396, 134, "kw"], ["พระราชวังบนเขาวัง", -260, 402, 100, "kw"], ["วัดพระแก้ว", 150, 380, 88, "kw"],
+];
+
+// ---------------------------------------------------------------- renderer / scene
+const stage = document.getElementById("stage");
+const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.75 : 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = !coarse;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const SKY = new THREE.Color("#cbdcec");
+scene.background = SKY;
+scene.fog = new THREE.Fog(SKY, 1400, 9000);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 20000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.screenSpacePanning = true;
+controls.maxPolarAngle = THREE.MathUtils.degToRad(88);
+controls.minDistance = 3;
+controls.maxDistance = 3500;
+
+const hemi = new THREE.HemisphereLight("#e4eefb", "#7d8a5c", 1.25);
+scene.add(hemi);
+const sunDir = B(0.731, -0.295, 0.616).normalize();
+const sun = new THREE.DirectionalLight("#fff2de", 2.6);
+sun.position.copy(sunDir).multiplyScalar(700);
+sun.target.position.set(0, 0, 0);
+scene.add(sun, sun.target);
+if (renderer.shadowMap.enabled) {
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(4096, 4096);
+  const s = sun.shadow.camera;
+  s.left = -270; s.right = 270; s.top = 270; s.bottom = -270; s.near = 100; s.far = 1500;
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.35;
+}
+// พื้นสำรองไกลสุด (ใช้เมื่อโหลดไฟล์ฉบับเบา)
+const far = new THREE.Mesh(new THREE.CircleGeometry(16000, 48), new THREE.MeshLambertMaterial({ color: "#8e9468" }));
+far.rotation.x = -Math.PI / 2;
+far.position.y = -0.6;
+scene.add(far);
+
+// ---------------------------------------------------------------- UI
+const labelsEl = document.getElementById("labels");
+const OWN = { "อาคาร 1 · อำนวยการ": "B1", "อาคาร 2": "B2", "อาคาร 3": "B3", "อาคาร 4": "B4", "อาคาร 5": "B5",
+  "อาคาร 6": "B6", "อาคาร 7": "B7", "อาคาร 8": "B8", "อาคาร 9": "B9", "โรงยิม ๘๐ พรรษา": "GYM",
+  "หอประชุม": "HALL", "โรงอาหาร": "CANTEEN" };
+const labelEls = LABELS.map(([t, x, y, z, kind]) => {
+  const el = document.createElement("div");
+  el.className = "lbl" + (kind ? " " + kind : "");
+  el.textContent = t;
+  labelsEl.appendChild(el);
+  return { el, p: B(x, y, z), own: OWN[t] };
+});
+let showLabels = true;
+let overlayDirty = true;
+// กล่องอาคารแบบง่าย (x0, y0, x1, y1, สูง) ใช้ซ่อนป้ายที่ถูกอาคารบัง
+const OCC = {
+  B1: [68, -46, 86.5, 38, 16], B2: [-145, 62, -87, 73, 15], B3: [-81, 62, -19, 73, 15], B4: [-17.5, 62, 71.5, 73, 19],
+  B5: [-145, -82, -83, -71, 19], B6: [-81.5, -82, -28.5, -71, 15], B7: [-142, 87, -94, 97, 11],
+  B8: [78, -63.5, 122, -52.5, 19], B9: [76, 44, 124, 60, 23.5], GYM: [-22, -106, 38, -64, 15],
+  HALL: [83, -102, 119, -76, 18], CANTEEN: [-10, 80, 46, 102, 9], SHOPS: [168, -150, 181, 214, 10],
+};
+const occBoxes = Object.entries(OCC).map(([k, [x0, y0, x1, y1, h]]) =>
+  ({ k, box: new THREE.Box3(new THREE.Vector3(x0, 0, -y1), new THREE.Vector3(x1, h, -y0)) }));
+const ray = new THREE.Ray(), hitP = new THREE.Vector3(), rdir = new THREE.Vector3();
+function occluded(L, dist) {
+  rdir.copy(L.p).sub(camera.position).normalize();
+  ray.set(camera.position, rdir);
+  for (const o of occBoxes) {
+    if (o.k === L.own) continue;
+    if (ray.intersectBox(o.box, hitP) && hitP.distanceTo(camera.position) < dist - 1) return true;
+  }
+  return false;
+}
+const btnLabels = document.getElementById("btnLabels");
+btnLabels.addEventListener("click", () => {
+  showLabels = !showLabels;
+  btnLabels.setAttribute("aria-pressed", String(showLabels));
+  labelsEl.hidden = !showLabels;
+  overlayDirty = true;
+});
+const info = document.getElementById("info");
+const btnInfo = document.getElementById("btnInfo");
+function setInfo(open) { info.hidden = !open; btnInfo.setAttribute("aria-pressed", String(open)); }
+btnInfo.addEventListener("click", () => setInfo(info.hidden));
+document.getElementById("btnClose").addEventListener("click", () => setInfo(false));
+
+const viewsEl = document.getElementById("views");
+const chips = VIEWS.map(v => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "chip";
+  b.textContent = v.name;
+  b.setAttribute("aria-pressed", "false");
+  b.addEventListener("click", () => { goTo(v); try { history.replaceState(null, "", "#" + v.id); } catch (e) {} });
+  viewsEl.appendChild(b);
+  return { b, v };
+});
+function markChip(v) { chips.forEach(c => c.b.setAttribute("aria-pressed", String(c.v === v))); }
+
+// ---------------------------------------------------------------- camera moves
+let tween = null;
+function goTo(v, instant = false) {
+  markChip(v);
+  if (instant || reduceMotion) {
+    camera.position.copy(v.pos); controls.target.copy(v.tgt); controls.update(); needs = true; tween = null; return;
+  }
+  tween = { t0: performance.now(), dur: 1400, p0: camera.position.clone(), t0v: controls.target.clone(), v };
+}
+function stepTween(now) {
+  if (!tween) return;
+  let k = Math.min(1, (now - tween.t0) / tween.dur);
+  const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  const lift = Math.sin(Math.PI * e) * Math.min(120, tween.p0.distanceTo(tween.v.pos) * 0.25);
+  camera.position.lerpVectors(tween.p0, tween.v.pos, e).add(new THREE.Vector3(0, lift, 0));
+  controls.target.lerpVectors(tween.t0v, tween.v.tgt, e);
+  needs = true;
+  if (k >= 1) tween = null;
+}
+controls.addEventListener("start", () => { tween = null; markChip(null); document.getElementById("hint").hidden = true; });
+
+// ---------------------------------------------------------------- render loop (เรนเดอร์เมื่อจำเป็น)
+let needs = true;
+const tmp = new THREE.Vector3();
+const needle = document.getElementById("needle");
+function updateOverlay() {
+  const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
+  if (showLabels) {
+    const maxD = camera.position.y < 40 ? 280 : 2600;
+    const cand = [];
+    for (const L of labelEls) {
+      tmp.copy(L.p).project(camera);
+      const vis = tmp.z < 1 && tmp.z > -1 && Math.abs(tmp.x) < 1.1 && Math.abs(tmp.y) < 1.1;
+      const d = camera.position.distanceTo(L.p);
+      if (!vis || d > maxD || occluded(L, d)) { L.el.style.display = "none"; continue; }
+      cand.push({ L, d, x: (tmp.x * 0.5 + 0.5) * w, y: (-tmp.y * 0.5 + 0.5) * h });
+    }
+    cand.sort((a, b) => a.d - b.d);
+    const placed = [];
+    for (const c of cand) {
+      const el = c.L.el;
+      el.style.display = "";
+      if (!c.L.w) c.L.w = el.offsetWidth || 90;
+      const r = { x0: c.x - c.L.w / 2 - 3, x1: c.x + c.L.w / 2 + 3, y0: c.y - 30, y1: c.y - 4 };
+      if (placed.some(p => !(r.x1 < p.x0 || r.x0 > p.x1 || r.y1 < p.y0 || r.y0 > p.y1))) { el.style.display = "none"; continue; }
+      placed.push(r);
+      el.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px) translate(-50%, -100%) translateY(-6px)`;
+      el.style.opacity = c.d > 1400 ? "0.8" : "1";
+    }
+  }
+  camera.getWorldDirection(tmp);
+  const az = Math.atan2(tmp.x, -tmp.z);
+  needle.style.transform = `rotate(${(-az * 180 / Math.PI).toFixed(1)}deg)`;
+}
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(1, h);
+  camera.updateProjectionMatrix();
+  needs = true;
+}
+addEventListener("resize", resize);
+resize();
+function loop(now) {
+  stepTween(now);
+  if (controls.update()) needs = true;
+  if (needs) {
+    renderer.render(scene, camera);
+    needs = false;
+    overlayDirty = true;
+  }
+  if (overlayDirty) { updateOverlay(); overlayDirty = false; }
+  requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------- load model (meshopt -> สำรองไฟล์ไม่บีบอัด)
+const ldBar = document.getElementById("ldBar"), ldPct = document.getElementById("ldPct");
+const ldText = document.getElementById("ldText"), ldTitle = document.getElementById("ldTitle");
+function progress(f) { const p = Math.round(f * 100); ldBar.style.width = p + "%"; ldPct.textContent = p + "%"; }
+function load(loader, url) {
+  return new Promise((res, rej) => loader.load(url, res, e => { if (e.total) progress(e.loaded / e.total); }, rej));
+}
+async function loadModel() {
+  try {
+    if (MeshoptDecoder.supported === false) throw new Error("no wasm");
+    await MeshoptDecoder.ready;
+    const l = new GLTFLoader();
+    l.setMeshoptDecoder(MeshoptDecoder);
+    const g = await load(l, "school.glb");
+    document.getElementById("fileUsed").textContent = "school.glb (บีบอัด 8.8 MB)";
+    return g;
+  } catch (e) {
+    console.warn("meshopt path failed, loading lite model", e);
+    ldText.textContent = "กำลังโหลดไฟล์สำรอง (ประมาณ 14 MB)";
+    progress(0);
+    const g = await load(new GLTFLoader(), "school-lite.glb");
+    document.getElementById("fileUsed").textContent = "school-lite.glb (ฉบับเบา 14 MB)";
+    return g;
+  }
+}
+const start = VIEWS.find(v => "#" + v.id === location.hash) || VIEWS[0];
+goTo(start, true);
+requestAnimationFrame(loop);
+loadModel().then(gltf => {
+  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    const big = /Ground|Mountains|Roads|Terrain/.test(o.name);
+    o.castShadow = !big && !/Paving|Track/.test(o.name);
+    o.receiveShadow = true;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) { if (m.map) m.map.anisotropy = aniso; }
+  });
+  scene.add(gltf.scene);
+  needs = true;
+  const ld = document.getElementById("loader");
+  ld.style.transition = reduceMotion ? "none" : "opacity 400ms ease";
+  ld.style.opacity = "0";
+  setTimeout(() => { ld.hidden = true; }, reduceMotion ? 0 : 420);
+}).catch(err => {
+  console.error(err);
+  ldTitle.textContent = "โหลดโมเดลไม่สำเร็จ";
+  ldText.textContent = "ลองรีเฟรชหน้านี้อีกครั้ง หรือเปิดจากเครือข่ายที่เร็วขึ้น (" + (err && err.message ? err.message : "error") + ")";
+});
+addEventListener("hashchange", () => { const v = VIEWS.find(x => "#" + x.id === location.hash); if (v) goTo(v); });
+</script>
