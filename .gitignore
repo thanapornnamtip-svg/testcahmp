@@ -4,3 +4,5 @@ __pycache__/
 phromanusorn-3d/output/obj/
 phromanusorn-3d/output/_lite_raw.glb
 phromanusorn-3d/renders/*.png
+phromanusorn-3d/web/data/
+phromanusorn-3d/web/poster.jpg

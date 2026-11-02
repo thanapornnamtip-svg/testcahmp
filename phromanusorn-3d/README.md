@@ -24,7 +24,7 @@
 | `output/phromanusorn.fbx` | FBX ฝังเท็กซ์เจอร์ สำหรับ Unity, Unreal, 3ds Max, Maya, SketchUp |
 | `output/phromanusorn_obj.zip` | OBJ + MTL + เท็กซ์เจอร์ |
 | `renders/*.jpg` | ภาพเรนเดอร์ Cycles 1600×1000 จากกล้องทั้ง 8 ตัว |
-| `web/index.html` | หน้าเว็บหมุนดูโมเดล (three.js) ต้องวาง `school.glb` (= `phromanusorn_web.glb`), `school-lite.glb` และ `poster.jpg` ไว้ข้างกัน |
+| `web/index.html` | หน้าเว็บหมุนดูโมเดล (three.js) ใช้ข้อมูลใน `web/data/` ที่สร้างด้วย `scripts/web_pack.py` และ `web/poster.jpg` (ภาพ `renders/01_Overview.jpg`) |
 
 หน่วยในโมเดลเป็นเมตร แกน +Y ใน Blender ชี้ทิศเหนือ (ใน glTF/FBX เป็นแกน -Z)
 จุดกึ่งกลางโรงเรียนอยู่ที่ (0, 0)
@@ -75,7 +75,9 @@ pip install bpy==5.2.3            # Blender แบบไลบรารี Pytho
 python3 scripts/textures.py       # เท็กซ์เจอร์ + ป้ายภาษาไทย (ใช้ฟอนต์ Loma ของ TLWG)
 python3 scripts/build.py          # สร้างฉาก -> output/
 python3 scripts/render.py         # เรนเดอร์ภาพ -> renders/
+python3 scripts/web_pack.py       # แปลง glb สำหรับหน้าเว็บ -> web/data/
 # ไฟล์ _web.glb ต้องใช้ gltfpack (npm i -g gltfpack) หรือ npx ถ้าไม่มีจะข้ามขั้นนี้
+# เปิดหน้าเว็บในเครื่อง: cp renders/01_Overview.jpg web/poster.jpg && python3 -m http.server -d web
 ```
 
 | สคริปต์ | หน้าที่ |
